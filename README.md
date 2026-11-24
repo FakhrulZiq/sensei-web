@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SenSei Web
 
-## Getting Started
+Browser workspace for SenSei accounts. The phone authorizes a browser with the existing QR key handoff. Financial records stay end-to-end encrypted on the server and are decrypted in this browser with `sensei-crypto`.
 
-First, run the development server:
+## Configure
 
-```bash
+1. Copy `.env.example` to `.env.local`.
+2. Set the Firebase web app values from the same Firebase project used by `sensei-be` and `sensei-rn`.
+3. Set `NEXT_PUBLIC_API_URL` to the backend origin. The default local backend port is `3000`; the web dev server uses `3001`.
+4. Add the web origin to the backend `CORS_ORIGINS` setting and enable Firebase Authentication and Storage for the project.
+
+The optional emulator URL values connect the web client to Auth and Storage emulators. Firestore access is through the backend API only.
+
+```sh
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3001`, choose **Link with phone**, then scan the code from SenSei → Backup → Link a browser. The phone asks for confirmation before it shares the data key. QR sessions expire after two minutes. The browser Firebase login and data key are stored in browser persistent storage until sign-out; a phone can revoke the browser from Backup → Manage linked browsers.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data and privacy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- The QR carries the existing `sensei://link` payload: one-time session ID and ephemeral browser X25519 public key. The private key is generated and kept in the browser while linking.
+- After phone approval, the backend returns the wrapped key approval and a Firebase custom token. The browser opens the key locally, signs in, then decrypts `/sync/pull` records locally.
+- Edits are encrypted with the shared `sensei-crypto` package before `/sync/push`. The backend never receives plaintext finance records.
+- The browser stores the data key and decrypted cache in IndexedDB. Use **Sign out** to clear both. Removing site data also clears the local browser key.
+- Receipt images already kept in cloud storage can be viewed after local decryption. New receipt capture and upload remain in the phone app.
 
-## Learn More
+## Shared crypto updates
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The package uses the built `sensei-crypto` archive already produced for the mobile app. After changing shared crypto, run `npm run build` in `../sensei-crypto`, refresh the app archive with `npm run pack:app`, then reinstall the web package from `../sensei-rn/vendor/sensei-crypto-0.1.0.tgz`.
