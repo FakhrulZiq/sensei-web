@@ -23,7 +23,7 @@ body {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   font-size: 14px;
 }
 button,
@@ -69,7 +69,7 @@ button:disabled {
   border-radius: 9px;
   display: grid;
   place-items: center;
-  font-family: Georgia, serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   font-weight: bold;
 }
 .nav-group {
@@ -190,7 +190,7 @@ button:disabled {
   font-weight: 700;
 }
 .page h1 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   font-size: 32px;
   letter-spacing: -0.045em;
   font-weight: 500;
