@@ -11,8 +11,24 @@ import { TransactionTable } from "./transaction-table";
 type CategoryTotal = { name: string; colour: string; total: number };
 const chartColours = ["#872e70", "#ee4b65", "#ffb13d", "#d0df37", "#85bf47", "#2896e8", "#335dcc"];
 
+function selected(value: unknown, month: string, paydayCycleEnabled: boolean, label: string) {
+  const date = String(value ?? "").slice(0, 10);
+  if (!paydayCycleEnabled) return date.slice(0, 7) === month;
+  const match = label.match(/^(\d{1,2}) ([A-Z][a-z]{2}) – (\d{1,2}) ([A-Z][a-z]{2}) (\d{4})$/);
+  if (!match) return false;
+  const monthIndex = (name: string) => ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(name);
+  const [, startDay, startName, endDay, endName, year] = match;
+  const startMonth = monthIndex(startName);
+  const endMonth = monthIndex(endName);
+  const endDate = new Date(Number(year), endMonth, Number(endDay));
+  const startYear = endMonth < startMonth ? Number(year) - 1 : Number(year);
+  const startDate = new Date(startYear, startMonth, Number(startDay));
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return date >= key(startDate) && date <= key(endDate);
+}
+
 export function SummaryScreen({
-  catalog, month, setMonth, spent, income, categories, accounts, recent, chartData, rows, onNavigate,
+  catalog, month, setMonth, spent, income, categories, accounts, recent, chartData, rows, paydayCycleEnabled, cycleLabel, onNavigate,
 }: {
   catalog: CatalogManifest;
   month: string;
@@ -24,9 +40,17 @@ export function SummaryScreen({
   recent: Row[];
   chartData: { label: string; value: number }[];
   rows: Record<TableName, Row[]>;
+  paydayCycleEnabled: boolean;
+  cycleLabel: string;
   onNavigate: (value: Screen) => void;
 }) {
-  const balance = accounts.reduce((total, account) => total + amount(account.balance), 0);
+  const countedAccounts = accounts.filter((account) => !Number(account.excluded_from_total));
+  const balance = countedAccounts
+    .filter((account) => account.type !== "credit")
+    .reduce((total, account) => total + amount(account.balance), 0);
+  const cardOwed = countedAccounts
+    .filter((account) => account.type === "credit")
+    .reduce((total, account) => total + Math.max(0, -amount(account.balance)), 0);
   const budgetRecord = (rows.settings ?? []).find((row) => row.key === "monthlyBudgetSen");
   let budget = 0;
   try { budget = Number(JSON.parse(String(budgetRecord?.value ?? "0"))) || 0; } catch { budget = 0; }
@@ -35,27 +59,27 @@ export function SummaryScreen({
     colour: String(category.colour ?? "#26b2ab"),
     limit: amount(category.limit_sen),
     used: (rows.transactions ?? []).filter((row) =>
-      row.type === "expense" && row.category_id === category.id && String(row.occurred_at ?? "").slice(0, 7) === month,
+      row.type === "expense" && row.category_id === category.id && selected(row.occurred_at, month, paydayCycleEnabled, cycleLabel),
     ).reduce((total, row) => total + amount(row.amount_sen), 0),
   }));
   const goals = (rows.pots ?? []).filter((pot) => !pot.archived_at && amount(pot.target_sen) > 0);
   const incomeCategories = useMemo(() => {
     const totals = new Map<string, number>();
     for (const row of rows.transactions ?? []) {
-      if (row.type !== "income" || String(row.occurred_at ?? "").slice(0, 7) !== month) continue;
+      if (row.type !== "income" || !selected(row.occurred_at, month, paydayCycleEnabled, cycleLabel)) continue;
       const category = (rows.categories ?? []).find((item) => item.id === row.category_id);
       const name = String(category?.name ?? "Other income");
       totals.set(name, (totals.get(name) ?? 0) + amount(row.amount_sen));
     }
     return [...totals].sort((a, b) => b[1] - a[1]);
-  }, [rows, month]);
+  }, [rows, month, paydayCycleEnabled, cycleLabel]);
   return <>
     <div className="page-head dashboard-intro">
-      <div><h1>Financial overview</h1><div className="subtitle">Your accounts and activity for the selected month</div></div>
+      <div><h1>Financial overview</h1><div className="subtitle">{paydayCycleEnabled ? `${new Date(`${month}-01T00:00:00`).toLocaleDateString("en-MY", { month: "long" })} salary cycle · ${cycleLabel}` : "Your accounts and activity for the selected month"}</div></div>
       <label className="date-control"><input aria-label="Choose month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
     </div>
     <div className="dashboard-metrics">
-      <DashboardMetric label="Total Balance" value={balance} detail={`${accounts.length} connected ${accounts.length === 1 ? "account" : "accounts"}`} />
+      <DashboardMetric label="Total Balance" value={balance} detail={cardOwed ? `${money(cardOwed)} owed on cards` : `${countedAccounts.length} connected ${countedAccounts.length === 1 ? "account" : "accounts"}`} />
       <DashboardMetric label="Monthly Income" value={income} detail="Income recorded this month" />
       <DashboardMetric label="Monthly Expenses" value={spent} detail={`${chartData.filter((day) => day.value > 0).length} days with spending`} />
     </div>

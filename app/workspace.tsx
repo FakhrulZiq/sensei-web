@@ -95,6 +95,7 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
   const [linkMessage, setLinkMessage] = useState("");
   const [search, setSearch] = useState("");
   const [month, setMonth] = useState("");
+  const monthManuallySelected = useRef(false);
   const [darkMode, setDarkMode] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [appearanceLoaded, setAppearanceLoaded] = useState(false);
@@ -220,13 +221,40 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
   const selectedTable = TABLES.includes(screen as TableName)
     ? (screen as TableName)
     : null;
-  const monthRows = useMemo(
-    () =>
-      rows.transactions?.filter(
-        (row) => String(row.occurred_at ?? "").slice(0, 7) === month,
-      ) ?? [],
-    [rows.transactions, month],
-  );
+  const paydayDay = Number(JSON.parse(String(rows.settings?.find((row) => row.key === "paydayDay")?.value ?? "null"))) || null;
+  const paydayCycleEnabled = JSON.parse(String(rows.settings?.find((row) => row.key === "budgetFromPayday")?.value ?? "false")) === true && !!paydayDay;
+  useEffect(() => {
+    if (!user || loading || !month || !paydayCycleEnabled || !paydayDay || monthManuallySelected.current) return;
+    const today = new Date();
+    const actualPayday = Math.min(paydayDay, new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate());
+    if (today.getDate() < actualPayday || month !== monthNow()) return;
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    setMonth(`${nextMonth.getFullYear()}-${pad(nextMonth.getMonth() + 1)}`);
+  }, [user, loading, month, paydayCycleEnabled, paydayDay]);
+  const selectMonth = (value: string) => {
+    monthManuallySelected.current = true;
+    setMonth(value);
+  };
+  const [selectedYear, selectedMonth] = month.split("-").map(Number);
+  const cycleDate = (year: number, monthIndex: number, day: number) => {
+    const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+    return new Date(year, monthIndex, Math.min(day, lastDay));
+  };
+  const selectedPayday = paydayCycleEnabled ? cycleDate(selectedYear, selectedMonth - 1, paydayDay) : null;
+  const cycleStart = paydayCycleEnabled
+    ? cycleDate(selectedYear, selectedMonth - 2, paydayDay)
+    : new Date(selectedYear, selectedMonth - 1, 1);
+  const cycleEnd = paydayCycleEnabled
+    ? selectedPayday!
+    : new Date(selectedYear, selectedMonth, 1);
+  const cycleLastDay = new Date(cycleEnd.getFullYear(), cycleEnd.getMonth(), cycleEnd.getDate() - 1);
+  const cycleLabel = `${cycleStart.getDate()} ${cycleStart.toLocaleDateString("en-MY", { month: "short" })} – ${cycleLastDay.getDate()} ${cycleLastDay.toLocaleDateString("en-MY", { month: "short" })} ${cycleLastDay.getFullYear()}`;
+  const rangeStart = `${cycleStart.getFullYear()}-${pad(cycleStart.getMonth() + 1)}-${pad(cycleStart.getDate())}`;
+  const rangeEnd = `${cycleEnd.getFullYear()}-${pad(cycleEnd.getMonth() + 1)}-${pad(cycleEnd.getDate())}`;
+  const monthRows = useMemo(() => rows.transactions?.filter((row) => {
+    const date = String(row.occurred_at ?? "").slice(0, 10);
+    return date >= rangeStart && date < rangeEnd;
+  }) ?? [], [rows.transactions, rangeStart, rangeEnd]);
   const spent = monthRows
     .filter((row) => row.type === "expense")
     .reduce((total, row) => total + amount(row.amount_sen), 0);
@@ -299,10 +327,12 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
   );
   const chartData = useMemo(() => {
     if (!month) return [];
-    const [year, monthNumber] = month.split("-").map(Number);
-    const days = new Date(year, monthNumber, 0).getDate();
-    return Array.from({ length: days }, (_, index) => {
-      const day = `${month}-${pad(index + 1)}`;
+    const days: Date[] = [];
+    for (const date = new Date(cycleStart); date < cycleEnd; date.setDate(date.getDate() + 1)) {
+      days.push(new Date(date));
+    }
+    return days.map((date) => {
+      const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
       const value = (rows.transactions ?? [])
         .filter(
           (row) =>
@@ -311,11 +341,11 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
         )
         .reduce((sum, row) => sum + amount(row.amount_sen), 0);
       return {
-        label: String(index + 1),
+        label: String(date.getDate()),
         value,
       };
     });
-  }, [rows.transactions, month]);
+  }, [rows.transactions, month, cycleStart, cycleEnd]);
 
   const linkBrowser = useCallback(async () => {
     const attempt = ++linkAttempt.current;
@@ -576,7 +606,7 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
             <SummaryScreen
               catalog={catalog}
               month={month}
-              setMonth={setMonth}
+              setMonth={selectMonth}
               spent={spent}
               income={income}
               categories={categoryTotals}
@@ -584,6 +614,8 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
               recent={recent}
               chartData={chartData}
               rows={rows}
+              paydayCycleEnabled={paydayCycleEnabled}
+              cycleLabel={cycleLabel}
               onNavigate={setScreen}
             />
           )}
@@ -591,7 +623,7 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
             <ReportsScreen
               catalog={catalog}
               month={month}
-              setMonth={setMonth}
+              setMonth={selectMonth}
               rows={rows}
               categories={categoryTotals}
               spent={spent}
