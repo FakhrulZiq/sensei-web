@@ -6,6 +6,9 @@ export function generateStaticParams() {
   return screenIds.filter((screen) => screen !== "summary").map((screen) => ({ screen }));
 }
 
+// This route reads URL params during the server render; don't require an instant shell.
+export const instant = false;
+
 export default async function WorkspacePage({ params }: { params: Promise<{ screen: string }> }) {
   const { screen } = await params;
   if (!isScreen(screen)) notFound();
