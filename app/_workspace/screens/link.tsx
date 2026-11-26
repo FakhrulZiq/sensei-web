@@ -19,7 +19,7 @@ export function LinkScreen({ error, qr, linkMessage, refreshableQr, expiredQr, s
     <main className="link-page">
         <section className="link-card">
           <div className="brand">
-            <span className="brand-mark">S</span> SenSei
+            <Image className="brand-mark" src="/sensei-mark.svg" alt="" width={32} height={32} unoptimized /> SenSei
           </div>
           <div className="eyebrow" style={{ marginTop: 38 }}>
             PRIVATE FINANCE WORKSPACE

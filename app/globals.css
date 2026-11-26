@@ -73,12 +73,8 @@ button:disabled {
 .brand-mark {
   height: 28px;
   width: 28px;
-  background: var(--green);
-  color: white;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  font-weight: bold;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 .nav-group {
   display: grid;

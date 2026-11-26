@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
 import { UiIcon, type IconName } from "../ui-icon";
 import { groups } from "./navigation";
@@ -46,7 +47,7 @@ export function WorkspaceShell({
   return <div className={`shell${privacyMode ? " privacy-mode" : ""}`}>
     {menuOpen && <button className="mobile-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     <aside className={`sidebar${menuOpen ? " sidebar-open" : ""}`} aria-label="Main navigation">
-      <div className="brand"><span className="brand-mark">S</span><span>SenSei</span><button className="mobile-menu-close icon-button" aria-label="Close navigation" onClick={() => setMenuOpen(false)}><UiIcon name="close" size={18} /></button></div>
+      <div className="brand"><Image className="brand-mark" src="/sensei-mark.svg" alt="" width={32} height={32} unoptimized /><span>SenSei</span><button className="mobile-menu-close icon-button" aria-label="Close navigation" onClick={() => setMenuOpen(false)}><UiIcon name="close" size={18} /></button></div>
       <nav className="sidebar-nav">
         {groups.map((group, index) => <div className="nav-group" key={group.title}>
           {index === 0

@@ -577,7 +577,7 @@ export default function Dashboard({ initialScreen = "summary" }: { initialScreen
     return (
       <div className="loading-screen">
         <div className="brand">
-          <span className="brand-mark">S</span> SenSei
+          <Image className="brand-mark" src="/sensei-mark.svg" alt="" width={32} height={32} unoptimized /> SenSei
         </div>
         <p>Unlocking your private dashboard…</p>
       </div>
